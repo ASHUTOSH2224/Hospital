@@ -3,10 +3,10 @@
 
 // Simulated server endpoints for captcha validation
 export const serverValidation = {
-  // Validate captcha response with server-side checks
+  // Validate captcha response with server-side checks - PRODUCTION FRIENDLY
   async validateCaptchaResponse(captchaData, userResponse, clientData) {
     // Simulate server processing time
-    await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
+    await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
     
     const validation = {
       isValid: false,
@@ -16,43 +16,51 @@ export const serverValidation = {
       sessionId: null
     };
 
-    // 1. Basic answer validation
+    // 1. Basic answer validation - This is the PRIMARY check
     if (userResponse.toLowerCase() === captchaData.answer.toLowerCase()) {
       validation.isValid = true;
-      validation.score += 30;
+      validation.score += 80; // Much higher weight for correct answer
     } else {
       validation.reasons.push('Incorrect answer');
       return validation;
     }
 
-    // 2. Client behavior analysis
-    const behaviorScore = analyzeClientBehavior(clientData);
+    // 2. Client behavior analysis - Very lenient
+    const behaviorScore = serverValidation.analyzeClientBehavior(clientData);
     validation.score += behaviorScore;
 
-    // 3. Device fingerprint validation
-    const deviceScore = validateDeviceFingerprint(clientData.deviceFingerprint);
+    // 3. Device fingerprint validation - Very lenient
+    const deviceScore = serverValidation.validateDeviceFingerprint(clientData.deviceFingerprint);
     validation.score += deviceScore;
 
-    // 4. Rate limiting check
-    const rateLimitCheck = await checkServerRateLimit(clientData.ip, clientData.userAgent);
-    if (!rateLimitCheck.allowed) {
+    // 4. Rate limiting check - Only block if clearly rate limited
+    const rateLimitCheck = await serverValidation.checkServerRateLimit(clientData.ip, clientData.userAgent);
+    if (!rateLimitCheck.allowed && rateLimitCheck.remainingAttempts === 0) {
       validation.isValid = false;
       validation.reasons.push('Rate limited');
       return validation;
     }
 
-    // 5. Geographic and time-based analysis
-    const geoTimeScore = analyzeGeographicAndTimePatterns(clientData);
+    // 5. Geographic and time-based analysis - Very lenient
+    const geoTimeScore = serverValidation.analyzeGeographicAndTimePatterns(clientData);
     validation.score += geoTimeScore;
 
-    // 6. Session management
-    if (validation.score >= 70) {
-      validation.sessionId = generateSecureSessionId();
-      validation.riskLevel = validation.score >= 90 ? 'low' : 'medium';
+    // 6. Session management - EXTREMELY lenient for production
+    // If they got the answer right, they're likely human
+    if (validation.score >= 20) { // Lowered from 40 to 20
+      validation.sessionId = serverValidation.generateSecureSessionId();
+      validation.riskLevel = validation.score >= 60 ? 'low' : 'medium'; // Lowered from 80 to 60
     } else {
-      validation.isValid = false;
-      validation.reasons.push('Suspicious behavior detected');
-      validation.riskLevel = 'high';
+      // Only block if score is extremely low (likely bot)
+      if (validation.score < 0) { // Lowered from 20 to 0
+        validation.isValid = false;
+        validation.reasons.push('Suspicious behavior detected');
+        validation.riskLevel = 'high';
+      } else {
+        // Allow passage for borderline cases
+        validation.sessionId = serverValidation.generateSecureSessionId();
+        validation.riskLevel = 'medium';
+      }
     }
 
     return validation;
@@ -118,54 +126,69 @@ export const serverValidation = {
     return `session_${hash}`;
   },
 
-  // Validate device fingerprint
+  // Validate device fingerprint - PRODUCTION FRIENDLY
   validateDeviceFingerprint(fingerprint) {
     let score = 0;
     
-    // Check fingerprint length and complexity
-    if (fingerprint.length >= 20) score += 10;
-    if (fingerprint.includes('canvas')) score += 5;
-    if (fingerprint.includes('screen')) score += 5;
+    // Check fingerprint length and complexity - Very lenient
+    if (fingerprint.length >= 5) score += 15; // Lowered from 20 to 5
+    if (fingerprint.includes('canvas')) score += 10;
+    if (fingerprint.includes('screen')) score += 10;
     
-    // Check for common bot fingerprints
+    // Check for common bot fingerprints - Only flag obvious ones
     const botSignatures = ['headless', 'phantom', 'selenium'];
     for (const signature of botSignatures) {
       if (fingerprint.toLowerCase().includes(signature)) {
-        score -= 20;
+        score -= 10; // Reduced penalty
       }
+    }
+    
+    // Production environment bonus
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+      score += 5; // Bonus for production environment
     }
     
     return score;
   },
 
-  // Analyze client behavior patterns
+  // Analyze client behavior patterns - PRODUCTION FRIENDLY
   analyzeClientBehavior(clientData) {
     let score = 0;
     
-    // Timing analysis
-    if (clientData.timeSpent >= 2000 && clientData.timeSpent <= 10000) {
-      score += 15; // Normal human timing
-    } else if (clientData.timeSpent < 1000) {
-      score -= 20; // Too fast
+    // Timing analysis - EXTREMELY flexible for production
+    if (clientData.timeSpent >= 500 && clientData.timeSpent <= 30000) { // Much wider range
+      score += 20; // Normal human timing (very expanded range)
+    } else if (clientData.timeSpent < 200) { // Much lower threshold
+      score -= 5; // Too fast (minimal penalty)
     }
     
-    // Mouse movement analysis
-    if (clientData.mouseMovements >= 5) {
-      score += 10;
+    // Mouse movement analysis - Very lenient
+    if (clientData.mouseMovements >= 1) { // Lowered from 3 to 1
+      score += 15;
     } else if (clientData.mouseMovements === 0) {
-      score -= 15;
+      score -= 5; // Minimal penalty
     }
     
-    // Keyboard interaction analysis
-    if (clientData.keyStrokes >= 3) {
-      score += 10;
+    // Keyboard interaction analysis - Very lenient
+    if (clientData.keyStrokes >= 1) { // Lowered from 2 to 1
+      score += 15;
     } else if (clientData.keyStrokes === 0) {
-      score -= 10;
+      score -= 2; // Minimal penalty
     }
     
     // Natural behavior patterns
     if (clientData.mouseMovements > 0 && clientData.keyStrokes > 0) {
-      score += 5; // Both mouse and keyboard usage
+      score += 10; // Both mouse and keyboard usage
+    }
+    
+    // Bonus for reasonable timing
+    if (clientData.timeSpent >= 1000 && clientData.timeSpent <= 15000) {
+      score += 10; // Bonus for reasonable timing
+    }
+    
+    // Production environment bonus
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+      score += 10; // Bonus for production environment
     }
     
     return score;

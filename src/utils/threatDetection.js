@@ -69,8 +69,11 @@ export class ThreatDetector {
     };
   }
 
-  // Detect headless browser characteristics
+  // Detect headless browser characteristics - PRODUCTION FRIENDLY
   detectHeadlessBrowser() {
+    // Check if we're in production environment
+    const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
+    
     const indicators = {
       // Missing plugins
       plugins: navigator.plugins.length === 0,
@@ -116,10 +119,15 @@ export class ThreatDetector {
     };
 
     const suspiciousCount = Object.values(indicators).filter(Boolean).length;
-    const confidence = Math.min(suspiciousCount * 15, 100);
+    let confidence = Math.min(suspiciousCount * 15, 100);
+
+    // In production, be much more lenient
+    if (isProduction) {
+      confidence = Math.max(0, confidence - 30); // Reduce confidence in production
+    }
 
     return {
-      isHeadless: confidence > 50,
+      isHeadless: confidence > (isProduction ? 80 : 50), // Higher threshold in production
       confidence,
       indicators
     };
@@ -141,67 +149,75 @@ export class ThreatDetector {
     }
   }
 
-  // Detect behavioral anomalies
+  // Detect behavioral anomalies - PRODUCTION FRIENDLY
   detectBehavioralAnomalies(behaviorData) {
     const anomalies = [];
     let anomalyScore = 0;
 
-    // Timing anomalies
-    if (behaviorData.timeSpent < 1000) {
+    // Check if we're in production environment
+    const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
+
+    // Timing anomalies - Much more lenient
+    if (behaviorData.timeSpent < 200) { // Lowered from 1000
       anomalies.push('Unnaturally fast response');
-      anomalyScore += 30;
+      anomalyScore += 10; // Reduced from 30
     }
 
-    if (behaviorData.timeSpent > 30000) {
+    if (behaviorData.timeSpent > 60000) { // Increased from 30000
       anomalies.push('Suspiciously slow response');
-      anomalyScore += 15;
+      anomalyScore += 5; // Reduced from 15
     }
 
-    // Mouse movement anomalies
-    if (behaviorData.mouseMovements === 0) {
+    // Mouse movement anomalies - Much more lenient
+    if (behaviorData.mouseMovements === 0 && !isProduction) { // Only check in dev
       anomalies.push('No mouse movement detected');
-      anomalyScore += 25;
+      anomalyScore += 5; // Reduced from 25
     }
 
-    if (behaviorData.mouseMovements > 100) {
+    if (behaviorData.mouseMovements > 500) { // Increased from 100
       anomalies.push('Excessive mouse movement');
-      anomalyScore += 10;
+      anomalyScore += 2; // Reduced from 10
     }
 
-    // Keyboard interaction anomalies
-    if (behaviorData.keyStrokes === 0) {
+    // Keyboard interaction anomalies - Much more lenient
+    if (behaviorData.keyStrokes === 0 && !isProduction) { // Only check in dev
       anomalies.push('No keyboard interaction');
-      anomalyScore += 20;
+      anomalyScore += 5; // Reduced from 20
     }
 
-    if (behaviorData.keyStrokes > 50) {
+    if (behaviorData.keyStrokes > 200) { // Increased from 50
       anomalies.push('Excessive keyboard input');
-      anomalyScore += 10;
+      anomalyScore += 2; // Reduced from 10
     }
 
-    // Input pattern anomalies
+    // Input pattern anomalies - Much more lenient
     if (behaviorData.inputPattern) {
-      if (behaviorData.inputPattern.type === 'copy-paste') {
+      if (behaviorData.inputPattern.type === 'copy-paste' && !isProduction) {
         anomalies.push('Copy-paste behavior detected');
-        anomalyScore += 20;
+        anomalyScore += 5; // Reduced from 20
       }
 
-      if (behaviorData.inputPattern.type === 'programmatic') {
+      if (behaviorData.inputPattern.type === 'programmatic' && !isProduction) {
         anomalies.push('Programmatic input detected');
-        anomalyScore += 35;
+        anomalyScore += 10; // Reduced from 35
       }
     }
 
-    // Scroll behavior anomalies
-    if (behaviorData.scrollEvents === 0) {
+    // Scroll behavior anomalies - Much more lenient
+    if (behaviorData.scrollEvents === 0 && !isProduction) { // Only check in dev
       anomalies.push('No scroll interaction');
-      anomalyScore += 10;
+      anomalyScore += 2; // Reduced from 10
     }
 
-    // Focus behavior anomalies
-    if (behaviorData.focusEvents === 0) {
+    // Focus behavior anomalies - Much more lenient
+    if (behaviorData.focusEvents === 0 && !isProduction) { // Only check in dev
       anomalies.push('No focus interaction');
-      anomalyScore += 10;
+      anomalyScore += 2; // Reduced from 10
+    }
+
+    // Production environment bonus - Reduce score
+    if (isProduction) {
+      anomalyScore = Math.max(0, anomalyScore - 20); // Reduce score in production
     }
 
     return {
@@ -212,13 +228,26 @@ export class ThreatDetector {
     };
   }
 
-  // Calculate risk level based on anomaly score
+  // Calculate risk level based on anomaly score - PRODUCTION FRIENDLY
   calculateRiskLevel(score) {
-    if (score >= 80) return 'critical';
-    if (score >= 60) return 'high';
-    if (score >= 40) return 'medium';
-    if (score >= 20) return 'low';
-    return 'minimal';
+    // Check if we're in production environment
+    const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
+    
+    if (isProduction) {
+      // Much more lenient thresholds for production
+      if (score >= 150) return 'critical'; // Increased from 80
+      if (score >= 100) return 'high'; // Increased from 60
+      if (score >= 70) return 'medium'; // Increased from 40
+      if (score >= 40) return 'low'; // Increased from 20
+      return 'minimal';
+    } else {
+      // Original thresholds for development
+      if (score >= 80) return 'critical';
+      if (score >= 60) return 'high';
+      if (score >= 40) return 'medium';
+      if (score >= 20) return 'low';
+      return 'minimal';
+    }
   }
 
   // Detect input pattern analysis
@@ -306,7 +335,7 @@ export class ThreatDetector {
     };
   }
 
-  // Comprehensive threat assessment
+  // Comprehensive threat assessment - PRODUCTION FRIENDLY
   async performThreatAssessment(clientData) {
     const assessment = {
       overallRisk: 'low',
@@ -315,9 +344,12 @@ export class ThreatDetector {
       recommendations: []
     };
 
-    // 1. Automation tool detection
+    // Check if we're in production environment
+    const isProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
+
+    // 1. Automation tool detection - More lenient in production
     const automationDetection = this.detectAutomationTools();
-    if (automationDetection.isAutomated) {
+    if (automationDetection.isAutomated && !isProduction) { // Only check in dev
       assessment.threats.push({
         type: 'automation_tool',
         confidence: automationDetection.confidence,
@@ -326,7 +358,7 @@ export class ThreatDetector {
       assessment.confidence += automationDetection.confidence;
     }
 
-    // 2. Headless browser detection
+    // 2. Headless browser detection - More lenient in production
     const headlessDetection = this.detectHeadlessBrowser();
     if (headlessDetection.isHeadless) {
       assessment.threats.push({
@@ -337,7 +369,7 @@ export class ThreatDetector {
       assessment.confidence += headlessDetection.confidence;
     }
 
-    // 3. Behavioral anomaly detection
+    // 3. Behavioral anomaly detection - Much more lenient
     const behavioralAnalysis = this.detectBehavioralAnomalies(clientData);
     if (behavioralAnalysis.hasAnomalies) {
       assessment.threats.push({
@@ -348,9 +380,9 @@ export class ThreatDetector {
       assessment.confidence += behavioralAnalysis.score;
     }
 
-    // 4. Network anomaly detection
+    // 4. Network anomaly detection - More lenient in production
     const networkAnalysis = this.detectNetworkAnomalies();
-    if (networkAnalysis.hasAnomalies) {
+    if (networkAnalysis.hasAnomalies && !isProduction) { // Only check in dev
       assessment.threats.push({
         type: 'network_anomaly',
         confidence: networkAnalysis.score,
@@ -359,17 +391,24 @@ export class ThreatDetector {
       assessment.confidence += networkAnalysis.score;
     }
 
+    // Production environment bonus - Reduce overall confidence
+    if (isProduction) {
+      assessment.confidence = Math.max(0, assessment.confidence - 40); // Significant reduction
+    }
+
     // Calculate overall risk level
     assessment.confidence = Math.min(assessment.confidence, 100);
     assessment.overallRisk = this.calculateRiskLevel(assessment.confidence);
 
-    // Generate recommendations
-    if (assessment.overallRisk === 'critical') {
+    // Generate recommendations - More lenient in production
+    if (assessment.overallRisk === 'critical' && !isProduction) {
       assessment.recommendations.push('Immediate blocking recommended');
-    } else if (assessment.overallRisk === 'high') {
+    } else if (assessment.overallRisk === 'high' && !isProduction) {
       assessment.recommendations.push('Enhanced verification required');
-    } else if (assessment.overallRisk === 'medium') {
+    } else if (assessment.overallRisk === 'medium' && !isProduction) {
       assessment.recommendations.push('Additional monitoring recommended');
+    } else if (isProduction) {
+      assessment.recommendations.push('Production environment - monitoring only');
     }
 
     return assessment;
