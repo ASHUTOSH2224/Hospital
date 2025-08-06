@@ -68,6 +68,7 @@ import ChemoGuide from '@/pages/health-conditions/BreastCancer/treatments/Blog3'
 import AdjuvantTherapyGuide from '@/pages/health-conditions/BreastCancer/treatments/Blog4';
 import BreastReconstructionGuide from '@/pages/health-conditions/BreastCancer/treatments/Blog6';
 import Home from '@/pages/Home/Home';
+import HomeWithCaptcha from '@/components/HomeWithCaptcha';
 import HeartDiseaseGenderDifferences from '@/pages/latestBlog/Blog1';
 import HomeSanctuaryGuide from '@/pages/latestBlog/Blog2';
 import HeartHealthyFoodsQuiz from '@/pages/latestBlog/Blog3';
@@ -225,7 +226,7 @@ const AllRoutes = () => {
 
     <Navbar />
     <Routes>
-      <Route path="/" element={<Home />} />
+      <Route path="/" element={<HomeWithCaptcha />} />
       <Route path="/health-conditions/breast-cancer" element={<BreastCancer />} />
         <Route path="/health-conditions/migraine" element={<Migraine />} />
         <Route path="/health-conditions/cancer-care" element={<CancerCare />} />

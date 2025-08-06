@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, Search, Menu, X, Mail, User, MessageCircle } from 'lucide-react';
+import { ChevronDown, Search, Menu, X, Mail, User, MessageCircle, Shield } from 'lucide-react';
+import { isCaptchaVerified } from '@/utils/captchaUtils';
 
 const ContactPopup = ({ isOpen, onClose }) => {
   const [formData, setFormData] = useState({
@@ -363,6 +364,17 @@ const Navbar = () => {
                   <span className="bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent ml-1">Lin</span>
                   <span className="text-pink-500">ee</span>
                 </span>
+                {/* Verification indicator */}
+                {isCaptchaVerified() && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex items-center space-x-1 mt-1"
+                  >
+                    <Shield size={12} className="text-green-600" />
+                    <span className="text-xs text-green-600 font-medium">Verified</span>
+                  </motion.div>
+                )}
               </div>
             </motion.a>
 
