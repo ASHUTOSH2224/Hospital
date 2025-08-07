@@ -118,7 +118,7 @@ export const checkIPBlocklist = async () => {
 };
 
 // Advanced bot detection
-export const analyzeUserBehavior = () => {
+export const analyzeClientBehavior = () => {
   const behavior = {
     mouseMovements: 0,
     keyStrokes: 0,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { setCaptchaVerified, isCaptchaVerified, logCaptchaAttempt } from '@/utils/captchaUtils';
+import { setCaptchaVerified, isCaptchaVerified, logCaptchaAttempt, analyzeClientBehavior } from '@/utils/captchaUtils';
 import { serverValidation, clientHelpers } from '@/utils/serverValidation';
 import { threatDetector } from '@/utils/threatDetection';
 
@@ -20,6 +20,7 @@ const CaptchaVerification = ({ onVerificationSuccess }) => {
   const [imageChallenge, setImageChallenge] = useState(null);
   const [threatAssessment, setThreatAssessment] = useState(null);
   const [monitoring, setMonitoring] = useState(null);
+  const [clientBehaviorData, setClientBehaviorData] = useState({ focusEvents: 0, scrollEvents: 0 });
   const canvasRef = useRef(null);
 
   // Advanced device fingerprinting
@@ -185,14 +186,17 @@ const CaptchaVerification = ({ onVerificationSuccess }) => {
 
   // Advanced behavioral analysis - PRODUCTION FRIENDLY
   const analyzeBehavior = () => {
+    // Get client behavior data from the utility function
+    const clientBehavior = analyzeClientBehavior();
+    
     const behaviors = {
       mouseMovements: mouseMovements,
       keyStrokes: keyStrokes,
       timeSpent: timeSpent,
       mouseSpeed: 0,
       keySpeed: 0,
-      focusChanges: 0,
-      scrollEvents: 0,
+      focusChanges: clientBehavior.focusEvents,
+      scrollEvents: clientBehavior.scrollEvents,
       clickPatterns: []
     };
 
@@ -214,6 +218,23 @@ const CaptchaVerification = ({ onVerificationSuccess }) => {
     // Natural behavior patterns
     if (mouseMovements > 0 && keyStrokes > 0) score += 15; // Both mouse and keyboard
     
+    // Focus events analysis (humans typically focus and unfocus elements)
+    if (clientBehavior.focusEvents > 0) score += 10;
+    
+    // Scroll events analysis (humans often scroll)
+    if (clientBehavior.scrollEvents > 0) score += 5;
+    
+    // Complex interaction patterns (multiple types of interactions suggest human behavior)
+    const interactionTypes = [
+      mouseMovements > 0,
+      keyStrokes > 0,
+      clientBehavior.focusEvents > 0,
+      clientBehavior.scrollEvents > 0
+    ].filter(Boolean).length;
+    
+    if (interactionTypes >= 3) score += 20; // Bonus for diverse interactions
+    else if (interactionTypes >= 2) score += 10;
+    
     // Bonus for reasonable timing
     if (timeSpent >= 1000 && timeSpent <= 15000) score += 10; // Bonus for reasonable timing
     
@@ -223,12 +244,12 @@ const CaptchaVerification = ({ onVerificationSuccess }) => {
     }
     
     setBehavioralScore(score);
-    return { behaviors, score };
+    return { behaviors, score, clientBehavior };
   };
 
   // Enhanced bot detection - PRODUCTION FRIENDLY
   const detectAdvancedBotBehavior = () => {
-    const { behaviors, score } = analyzeBehavior();
+    const { behaviors, score, clientBehavior } = analyzeBehavior();
     const suspicious = [];
     
     // Advanced detection patterns - EXTREMELY lenient for production
@@ -237,6 +258,15 @@ const CaptchaVerification = ({ onVerificationSuccess }) => {
     if (mouseMovements < 0) suspicious.push('No mouse interaction'); // Impossible threshold
     if (keyStrokes < 0) suspicious.push('Suspicious input pattern'); // Impossible threshold
     if (attempts > 10) suspicious.push('Multiple failed attempts'); // Much higher threshold
+    
+    // Enhanced detection using client behavior data
+    if (clientBehavior.focusEvents === 0 && timeSpent > 5000) {
+      suspicious.push('No focus events detected over extended time');
+    }
+    
+    if (clientBehavior.scrollEvents === 0 && clientBehavior.mouseMovements === 0 && timeSpent > 3000) {
+      suspicious.push('Complete lack of user interaction');
+    }
     
     // Check for automation patterns - Very flexible
     const inputPattern = userInput.match(/^\d+$/);
@@ -257,7 +287,7 @@ const CaptchaVerification = ({ onVerificationSuccess }) => {
       }
     }
     
-    return { suspicious: suspicious.length > 0, score, behaviors };
+    return { suspicious: suspicious.length > 0, score, behaviors, clientBehavior };
   };
 
   // Rate limiting with exponential backoff
@@ -372,10 +402,12 @@ const CaptchaVerification = ({ onVerificationSuccess }) => {
 
     const handleFocus = () => {
       focusCount++;
+      setClientBehaviorData(prev => ({ ...prev, focusEvents: focusCount }));
     };
 
     const handleScroll = () => {
       scrollCount++;
+      setClientBehaviorData(prev => ({ ...prev, scrollEvents: scrollCount }));
     };
 
     // Generate device fingerprint
@@ -462,11 +494,12 @@ const CaptchaVerification = ({ onVerificationSuccess }) => {
       ip: '127.0.0.1', // In production, get from server
       country: 'US',
       responseTime: timeSpent,
-      inputPattern: monitoring ? threatDetector.getMonitoringData(monitoring).inputPattern : null
+      inputPattern: monitoring ? threatDetector.getMonitoringData(monitoring).inputPattern : null,
+      clientBehavior: analyzeClientBehavior() // Include client behavior analysis
     };
 
     // Advanced bot detection with threat assessment
-    const { suspicious, score, behaviors } = detectAdvancedBotBehavior();
+    const { suspicious, score, behaviors, clientBehavior } = detectAdvancedBotBehavior();
     
     // Perform server-side validation simulation
     const serverValidationResult = await serverValidation.validateCaptchaResponse(
@@ -502,6 +535,7 @@ const CaptchaVerification = ({ onVerificationSuccess }) => {
         reason: 'Severe bot detection confirmed', 
         score, 
         behaviors,
+        clientBehavior,
         serverValidationResult,
         deviceFingerprint 
       });
@@ -528,6 +562,7 @@ const CaptchaVerification = ({ onVerificationSuccess }) => {
       logCaptchaAttempt(true, { 
         score, 
         behaviors,
+        clientBehavior,
         serverValidationResult,
         deviceFingerprint,
         timeSpent 
@@ -544,6 +579,7 @@ const CaptchaVerification = ({ onVerificationSuccess }) => {
         reason: 'Wrong answer',
         score,
         behaviors,
+        clientBehavior,
         deviceFingerprint 
       });
     }
@@ -678,6 +714,9 @@ const CaptchaVerification = ({ onVerificationSuccess }) => {
           </p>
           <p className="text-xs text-gray-400 mt-1">
             Attempts: {attempts} | Time: {Math.ceil(timeSpent / 1000)}s | Score: {behavioralScore}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Mouse: {mouseMovements} | Keys: {keyStrokes} | Interactions: {clientBehaviorData.focusEvents + clientBehaviorData.scrollEvents}
           </p>
         </div>
       </div>

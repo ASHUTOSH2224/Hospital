@@ -3,7 +3,7 @@ import { clearCaptchaVerification, resetCaptchaVerification } from '@/utils/capt
 
 const DevTools = () => {
   // Only show in development
-  if (process.env.NODE_ENV !== 'development') {
+  if (import.meta.env.MODE === 'development') {
     return null;
   }
 
